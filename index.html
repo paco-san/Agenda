@@ -498,6 +498,7 @@ function setSyncStatus(state, msg='') {
   const icons = { ok: '☁️ Sincronizzato', saving: '⏳ Salvataggio…', error: '⚠️ ' + msg, offline: '📴 Offline' };
   el.textContent = icons[state] || '';
   el.className = 'sync-status sync-' + state;
+  if(state === 'error') console.error('Sync error:', msg);
 }
 
 function todayKey() {
@@ -516,8 +517,8 @@ async function loadData() {
     rows.forEach(r => { allData[r.data_key] = JSON.parse(r.payload); });
     setSyncStatus('ok');
   } catch(e) {
-    setSyncStatus('error', 'Errore caricamento');
-    console.error(e);
+    setSyncStatus('error', 'Caric: ' + (e.message||e).toString().slice(0,40));
+    console.error('loadData error:', e);
   }
 }
 
@@ -534,8 +535,8 @@ async function saveData() {
     await sbUpsert('agenda_giorni', { data_key: notesKey, payload: JSON.stringify(notes) });
     setSyncStatus('ok');
   } catch(e) {
-    setSyncStatus('error', 'Errore salvataggio');
-    console.error(e);
+    setSyncStatus('error', 'Salv: ' + (e.message||e).toString().slice(0,40));
+    console.error('saveData error:', e);
   }
 }
 
