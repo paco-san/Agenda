@@ -271,6 +271,24 @@ border: 1px solid #E8A49C;
 .btn-save:active { background: #922B21; }
 .btn-cancel { background: none; border: 1px solid #c8c0b4; color: #4a4a4a; border-radius: 3px; padding: 12px 16px; font-family: ‘Lato’, sans-serif; font-size: 14px; cursor: pointer; }
 .btn-delete { background: none; border: 1px solid #E8A49C; color: #B03A2E; border-radius: 3px; padding: 12px 14px; font-family: ‘Lato’, sans-serif; font-size: 13px; cursor: pointer; }
+.btn-swap { background: none; border: 1px solid #C9A84C; color: #7D6608; border-radius: 3px; padding: 12px 14px; font-family: ‘Lato’, sans-serif; font-size: 13px; cursor: pointer; }
+.swap-panel {
+display: none; background: #FEF9EC; border: 1px solid #C9A84C;
+border-left: 4px solid #C9A84C; border-radius: 3px;
+padding: 10px 14px; margin-bottom: 12px;
+}
+.swap-panel.show { display: block; }
+.swap-panel-title { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #7D6608; margin-bottom: 8px; }
+.swap-list { display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow-y: auto; }
+.swap-item {
+display: flex; align-items: center; justify-content: space-between;
+background: white; border: 1px solid #e8e2da; border-radius: 3px;
+padding: 8px 10px; cursor: pointer; transition: background 0.12s;
+}
+.swap-item:hover { background: #FADBD8; border-color: #B03A2E; }
+.swap-item-info { font-size: 12px; color: #1a1a1a; }
+.swap-item-info strong { font-size: 13px; }
+.swap-item-tables { font-size: 11px; color: #B03A2E; font-weight: 700; }
 
 @media print {
 .topbar, .date-nav, .stats-bar, .table-map-section { display: none !important; }
@@ -440,9 +458,14 @@ body { background: white; }
     </div>
   </div>
 </div>
+  <div class="swap-panel" id="swap-panel">
+    <div class="swap-panel-title">↔ Scegli con chi scambiare i tavoli</div>
+    <div class="swap-list" id="swap-list"></div>
+  </div>
 <div class="modal-footer">
   <button class="btn-cancel" onclick="closeModal()">Annulla</button>
   <button class="btn-delete" id="btn-delete" style="display:none" onclick="deleteBooking()">Elimina</button>
+  <button class="btn-swap" id="btn-swap" style="display:none" onclick="toggleSwapPanel()">↔ Scambia</button>
   <button class="btn-save" onclick="saveBooking()">Salva</button>
 </div>
 ```
@@ -850,6 +873,8 @@ function openModal(panel, id) {
   document.getElementById('modal-title').textContent = b ? 'Modifica Prenotazione' : 'Nuova Prenotazione';
   document.getElementById('modal-subtitle').textContent = `${panel===1?'Prima':'Seconda'} serata`;
   document.getElementById('btn-delete').style.display = b ? 'block' : 'none';
+  document.getElementById('btn-swap').style.display = b ? 'block' : 'none';
+  document.getElementById('swap-panel').classList.remove('show');
   document.getElementById('dup-warning').classList.remove('show');
 
   if(b) {
@@ -879,6 +904,65 @@ function setOraMode(mode) {
   document.getElementById('mode-range').classList.toggle('active', mode==='range');
   document.getElementById('ora-single-field').style.display = mode==='single'?'':'none';
   document.getElementById('ora-range-field').style.display  = mode==='range'?'':'none';
+}
+
+function toggleSwapPanel() {
+  const panel = document.getElementById('swap-panel');
+  const isOpen = panel.classList.contains('show');
+  if(isOpen) { panel.classList.remove('show'); return; }
+
+  // Build list of other bookings in same panel (excluding current)
+  const current = bookings().find(x => x.id === editingId);
+  if(!current) return;
+
+  const others = bookings().filter(b =>
+    b.id !== editingId &&
+    b.panel === current.panel &&
+    getTavoli(b).length > 0
+  ).sort((a,b) => (toMin(a.ora)||0) - (toMin(b.ora)||0));
+
+  const list = document.getElementById('swap-list');
+  list.innerHTML = '';
+
+  if(others.length === 0) {
+    list.innerHTML = '<div style="font-size:12px;color:#4a4a4a;padding:6px">Nessuna altra prenotazione con tavoli assegnati in questa serata.</div>';
+  } else {
+    others.forEach(b => {
+      const tavoli = getTavoli(b).join(', ');
+      const oraLabel = b.oraTo ? b.ora+'→'+b.oraTo : (b.ora||'—');
+      const div = document.createElement('div');
+      div.className = 'swap-item';
+      div.innerHTML = `
+        <div class="swap-item-info">
+          <strong>${b.nome||'—'}</strong>
+          <span style="color:#4a4a4a;margin-left:8px">${oraLabel} · ${b.np||'?'} pers.</span>
+        </div>
+        <div class="swap-item-tables">Tav. ${tavoli}</div>`;
+      div.addEventListener('click', () => doSwap(b.id));
+      list.appendChild(div);
+    });
+  }
+
+  panel.classList.add('show');
+}
+
+function doSwap(otherId) {
+  const bs = bookings();
+  const a = bs.find(x => x.id === editingId);
+  const b = bs.find(x => x.id === otherId);
+  if(!a || !b) return;
+
+  // Swap tavoli arrays
+  const tmpTavoli = a.tavoli ? [...a.tavoli] : (a.tavolo ? [String(a.tavolo)] : []);
+  a.tavoli = b.tavoli ? [...b.tavoli] : (b.tavolo ? [String(b.tavolo)] : []);
+  b.tavoli = tmpTavoli;
+  // Clear old single-tavolo field if present
+  delete a.tavolo; delete b.tavolo;
+
+  setBookings(bs);
+  saveData();
+  render();
+  closeModal();
 }
 
 function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); editingId=null; }
