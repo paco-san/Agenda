@@ -1032,6 +1032,12 @@ function updateStats() {
 }
 
 function openModal(panel, id) {
+  // Block new bookings on closed days
+  if(!id && isClosed(currentDate)) {
+    const reason = isClosed(currentDate) === 'domenica' ? 'Il ristorante è chiuso la domenica.' : 'Questo giorno è segnato come ferie.';
+    alert('⛔ ' + reason + '\nNon è possibile inserire prenotazioni.');
+    return;
+  }
   currentPanel=panel; editingId=id||null;
   populateOraSelect(panel);
   const b = id ? bookings().find(x=>x.id===id) : null;
