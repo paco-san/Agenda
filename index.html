@@ -481,15 +481,19 @@ async function sbGet(table, eq = {}) {
   return r.json();
 }
 async function sbUpsert(table, row) {
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?on_conflict=data_key`, {
     method: 'POST',
     headers: {
       apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`,
-      'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates'
+      'Content-Type': 'application/json',
+      'Prefer': 'resolution=merge-duplicates,return=minimal'
     },
     body: JSON.stringify(row)
   });
-  if(!r.ok) throw new Error(await r.text());
+  if(!r.ok) {
+    const txt = await r.text();
+    throw new Error(txt);
+  }
 }
 
 function setSyncStatus(state, msg='') {
