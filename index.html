@@ -573,11 +573,22 @@ body { background: white; }
       <div id="tavoli-picker" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
     </div>
   </div>
-</div>
+  <!-- ATT tag toggle -->
+  <div class="field-group" id="att-row" style="display:none">
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:#FEF9EC;border:1px solid #C9A84C;border-left:4px solid #C9A84C;border-radius:3px;">
+      <span style="font-size:12px;color:#7D6608;font-weight:700;flex:1;">ATT — Tavolo in attesa di conferma</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="f-att-toggle" onchange="updateAttSlider()">
+        <span class="toggle-slider" id="att-slider"></span>
+      </label>
+    </div>
+  </div>
+
   <div class="swap-panel" id="swap-panel">
     <div class="swap-panel-title">↔ Scegli con chi scambiare i tavoli</div>
     <div class="swap-list" id="swap-list"></div>
   </div>
+</div>
 <div class="modal-footer">
   <button class="btn-cancel" onclick="closeModal()">Annulla</button>
   <button class="btn-delete" id="btn-delete" style="display:none" onclick="deleteBooking()">Elimina</button>
@@ -1153,10 +1164,11 @@ function renderPanel(panel) {
         `<div style="line-height:1.4">${t}${bisSet.has(t)?'<span class="badge-bis">BIS</span>':''}</div>`
       ).join('') || '';
 
+      const attBadge = b.att ? '<span style="display:inline-block;background:#C9A84C;color:white;font-size:8px;font-weight:900;padding:1px 4px;border-radius:2px;margin-left:4px;letter-spacing:0.04em;">ATT</span>' : '';
       tr.innerHTML = `
         <td class="cell-chk"><div class="chk-box${b.arrived?' checked':''}" data-id="${b.id}"></div></td>
         <td class="${oraClass}">${oraText}</td>
-        <td class="cell-nome">${b.nome||''}</td>
+        <td class="cell-nome">${b.nome||''}${attBadge}</td>
         <td class="cell-np">${b.np||''}</td>
         <td class="cell-tel">${b.tel||''}</td>
         <td class="cell-tav" style="vertical-align:middle;padding:2px 3px;">${tavoliHTML}</td>`;
@@ -1212,6 +1224,7 @@ function openModal(panel, id) {
   document.getElementById('modal-subtitle').textContent = `${panel===1?'Prima':'Seconda'} serata`;
   document.getElementById('btn-delete').style.display = b ? 'block' : 'none';
   document.getElementById('btn-swap').style.display = b ? 'block' : 'none';
+  document.getElementById('att-row').style.display = 'block';
   document.getElementById('swap-panel').classList.remove('show');
   document.getElementById('dup-warning').classList.remove('show');
 
@@ -1227,10 +1240,12 @@ function openModal(panel, id) {
     document.getElementById('f-nome').value   = b.nome||'';
     document.getElementById('f-np').value     = b.np||'';
     document.getElementById('f-tel').value    = b.tel||'';
+    document.getElementById('f-att-toggle').checked = !!b.att;
     setPickerSelection(getTavoli(b), b.ora||null, b.oraTo||null);
   } else {
     setOraMode('single');
     ['f-ora','f-ora-from','f-ora-to','f-nome','f-np','f-tel'].forEach(id=>{ document.getElementById(id).value=''; });
+    document.getElementById('f-att-toggle').checked = false;
     setPickerSelection([], null, null);
   }
   document.getElementById('modal-overlay').classList.add('open');
@@ -1304,6 +1319,11 @@ function doSwap(otherId) {
   closeModal();
 }
 
+function updateAttSlider() {
+  const on = document.getElementById('f-att-toggle').checked;
+  document.getElementById('att-slider').style.background = on ? '#C9A84C' : '#c8c0b4';
+}
+
 function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); editingId=null; }
 function closeModalOutside(e) { if(e.target===document.getElementById('modal-overlay')) closeModal(); }
 
@@ -1314,6 +1334,7 @@ function saveBooking() {
   const nome   = document.getElementById('f-nome').value.trim();
   const np     = document.getElementById('f-np').value;
   const tel    = document.getElementById('f-tel').value.trim();
+  const att    = document.getElementById('f-att-toggle').checked;
   const tavoli = getSelectedTavoli();
 
   if(!nome && !ora) { alert('Inserisci almeno un orario o un nome.'); return; }
@@ -1341,9 +1362,9 @@ function saveBooking() {
   let bs = bookings();
   if(editingId) {
     const idx = bs.findIndex(x=>x.id===editingId);
-    if(idx>-1) bs[idx] = {...bs[idx], ora, oraTo, nome, np, tel, tavoli};
+    if(idx>-1) bs[idx] = {...bs[idx], ora, oraTo, nome, np, tel, att, tavoli};
   } else {
-    bs.push({ id:Date.now().toString(), panel:currentPanel, ora, oraTo, nome, np, tel, tavoli, arrived:false });
+    bs.push({ id:Date.now().toString(), panel:currentPanel, ora, oraTo, nome, np, tel, att, tavoli, arrived:false });
   }
   setBookings(bs);
   // Log to history
