@@ -657,6 +657,43 @@ async function reloadFromServer() {
   render();
 }
 
+// ── AUTO-REFRESH ALLE 18:15 ───────────────────────────────────────────
+function scheduleAutoRefresh() {
+  function msUntil1815() {
+    const now = new Date();
+    const target = new Date();
+    target.setHours(18, 15, 0, 0);
+    // If already past 18:15 today, schedule for tomorrow
+    if(now >= target) target.setDate(target.getDate() + 1);
+    return target - now;
+  }
+
+  function doRefresh() {
+    // Don't refresh if modal is open (user is editing)
+    const modalOpen = document.getElementById('modal-overlay').classList.contains('open');
+    if(modalOpen) {
+      // Try again in 2 minutes
+      setTimeout(doRefresh, 2 * 60 * 1000);
+      setSyncStatus('saving', '');
+      document.getElementById('sync-status').textContent = '⏸ Aggiorn. in attesa…';
+      return;
+    }
+    loadData().then(() => {
+      render();
+      // Schedule next day
+      setTimeout(doRefresh, msUntil1815());
+    });
+  }
+
+  // Schedule first run
+  setTimeout(doRefresh, msUntil1815());
+
+  // Show countdown in sync status (optional subtle indicator)
+  console.log(`Auto-refresh scheduled in ${Math.round(msUntil1815()/60000)} minutes`);
+}
+
+scheduleAutoRefresh();
+
 function populateSelects() {
   const np = document.getElementById('f-np');
   for(let i=1;i<=25;i++) np.innerHTML+=`<option value="${i}">${i}</option>`;
