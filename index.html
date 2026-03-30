@@ -876,10 +876,15 @@ function updateTavoliCount() {
 }
 
 function populateOraSelect(panel) {
-  const slots = panel===1 ? SLOTS_1 : SLOTS_2;
+  // Always show all slots — panel is assigned automatically by ora value
   const el = document.getElementById('f-ora');
   el.innerHTML = '<option value="">— Seleziona orario —</option>';
-  slots.forEach(s => el.innerHTML+=`<option value="${s}">${s}</option>`);
+  [...SLOTS_1, ...SLOTS_2].forEach(s => el.innerHTML+=`<option value="${s}">${s}</option>`);
+}
+
+// Determine panel from ora: SLOTS_1 → panel 1, SLOTS_2 → panel 2
+function panelFromOra(ora) {
+  return SLOTS_1.includes(ora) ? 1 : 2;
 }
 
 function render() {
@@ -1253,7 +1258,14 @@ function openModal(panel, id) {
   populateOraSelect(panel);
   const b = id ? bookings().find(x=>x.id===id) : null;
   document.getElementById('modal-title').textContent = b ? 'Modifica Prenotazione' : 'Nuova Prenotazione';
-  document.getElementById('modal-subtitle').textContent = `${panel===1?'Prima':'Seconda'} serata`;
+  const subEl = document.getElementById('modal-subtitle');
+  if(b) {
+    subEl.textContent = b.panel===1 ? '↪ Prima serata (19:00–20:30)' : '↪ Seconda serata (20:45–oltre)';
+    subEl.style.color = b.panel===1 ? '#C9A84C' : '#E8A49C';
+  } else {
+    subEl.textContent = "Serata assegnata automaticamente in base all'orario";
+    subEl.style.color = '';
+  }
   document.getElementById('btn-delete').style.display = b ? 'block' : 'none';
   document.getElementById('btn-swap').style.display = b ? 'block' : 'none';
   document.getElementById('att-row').style.display = 'block';
@@ -1405,9 +1417,14 @@ function saveBooking() {
   let bs = bookings();
   if(editingId) {
     const idx = bs.findIndex(x=>x.id===editingId);
-    if(idx>-1) bs[idx] = {...bs[idx], ora, oraTo, nome, np, tel, att, tavoli};
+    if(idx>-1) {
+      const assignedPanel = ora ? panelFromOra(ora) : bs[idx].panel;
+      bs[idx] = {...bs[idx], ora, oraTo, nome, np, tel, att, tavoli, panel: assignedPanel};
+    }
   } else {
-    bs.push({ id:Date.now().toString(), panel:currentPanel, ora, oraTo, nome, np, tel, att, tavoli, arrived:false });
+    // Auto-assign panel based on ora
+    const assignedPanel = ora ? panelFromOra(ora) : currentPanel;
+    bs.push({ id:Date.now().toString(), panel:assignedPanel, ora, oraTo, nome, np, tel, att, tavoli, arrived:false });
   }
   setBookings(bs);
   // Log to history
@@ -1438,6 +1455,31 @@ function deleteBooking() {
 document.addEventListener('keydown', e => {
   if(e.key==='Escape') closeModal();
   if(e.key==='Enter' && document.getElementById('modal-overlay').classList.contains('open')) saveBooking();
+});
+
+// Update subtitle & repopulate picker when ora changes
+function onOraChange(ora) {
+  if(ora) {
+    const p = panelFromOra(ora);
+    document.getElementById('modal-subtitle').textContent =
+      p===1 ? '↪ Prima serata (19:00–20:30)' : '↪ Seconda serata (20:45–oltre)';
+    document.getElementById('modal-subtitle').style.color = p===1 ? '#C9A84C' : '#E8A49C';
+  } else {
+    document.getElementById('modal-subtitle').textContent = 'Serata assegnata automaticamente in base all'orario';
+    document.getElementById('modal-subtitle').style.color = '';
+  }
+}
+document.getElementById('f-ora').addEventListener('change', function() {
+  onOraChange(this.value);
+  // Refresh picker conflicts with new ora
+  const sel = getSelectedTavoli();
+  setPickerSelection(sel, this.value, null);
+});
+document.getElementById('f-ora-from').addEventListener('change', function() {
+  const oraTo = document.getElementById('f-ora-to').value;
+  onOraChange(this.value);
+  const sel = getSelectedTavoli();
+  setPickerSelection(sel, this.value, oraTo||null);
 });
 </script>
 
