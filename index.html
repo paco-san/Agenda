@@ -200,6 +200,8 @@ display: flex; align-items: center; justify-content: center;
 .tav-btn:hover { border-color: #B03A2E; color: #B03A2E; }
 .tav-btn.selected { background: #B03A2E; border-color: #B03A2E; color: white; }
 .tav-btn.conflict { border-color: #aaa; background: #eee; color: #aaa; cursor: not-allowed; opacity: 0.5; }
+.tav-btn.conflict-soft { border-color: #C9A84C; background: #FEF9EC; color: #7D6608; cursor: pointer; }
+.tav-btn.conflict-soft:hover { border-color: #B03A2E; background: #FADBD8; color: #B03A2E; }
 
 .badge-bis {
 font-size: 10px; font-weight: 900; color: #B03A2E;
@@ -797,6 +799,16 @@ function scheduleAutoRefresh() {
 
 scheduleAutoRefresh();
 
+// ── AGGIORNAMENTO QUANDO LA PAGINA TORNA VISIBILE ────────────────────────────
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible') {
+    const modalOpen = document.getElementById('modal-overlay').classList.contains('open');
+    if(!modalOpen) {
+      loadData().then(() => render());
+    }
+  }
+});
+
 function populateSelects() {
   const np = document.getElementById('f-np');
   for(let i=1;i<=25;i++) np.innerHTML+=`<option value="${i}">${i}</option>`;
@@ -828,21 +840,32 @@ function setPickerSelection(selected=[], ora=null, oraTo=null) {
   document.querySelectorAll('.tav-btn').forEach(btn => {
     const t = btn.dataset.t;
     const isSelected = selected.includes(t);
-    // Check if this tavolo conflicts with existing bookings at this time
-    const conflict = !isSelected && !!bookings().find(b =>
+    // Find conflicting booking for this tavolo
+    const conflictingB = !isSelected ? bookings().find(b =>
       b.id !== editingId &&
       b.tavoli && b.tavoli.includes(t) &&
       timeOverlap(fakeBooking, b)
-    );
+    ) : null;
+    // Hard conflict only if the booking's start time is NOT yet in the past
+    const hardConflict = !!conflictingB && !bookingIsInPast(conflictingB);
+    // Soft conflict: was occupied but start time is past (tavolo potentially free)
+    const softConflict = !!conflictingB && bookingIsInPast(conflictingB);
     btn.classList.toggle('selected', isSelected);
-    btn.classList.toggle('conflict', conflict);
+    btn.classList.toggle('conflict', hardConflict);
+    btn.classList.toggle('conflict-soft', softConflict);
+    btn.title = hardConflict
+      ? `Occupato da ${conflictingB.nome||'—'} (${conflictingB.ora})`
+      : softConflict
+        ? `Era occupato da ${conflictingB.nome||'—'} (${conflictingB.ora}) — ora potrebbe essere libero`
+        : '';
   });
   updateTavoliCount();
 }
 
 function toggleTavoloBtn(btn) {
-  if(btn.classList.contains('conflict')) return;
+  if(btn.classList.contains('conflict')) return; // hard conflict: blocked
   btn.classList.toggle('selected');
+  btn.classList.remove('conflict-soft'); // clear soft warning once selected
   updateTavoliCount();
 }
 
@@ -995,6 +1018,15 @@ function removeFerie(dateKey) {
   saveData();
   renderFerieList();
   updateDateDisplay();
+}
+
+// Returns true if the booking's start time has already passed (today)
+function bookingIsInPast(b) {
+  if(!b.ora) return false;
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const startMin = toMin(b.ora);
+  return startMin !== null && nowMin > startMin;
 }
 
 // Convert "HH:MM" to minutes for easy comparison
@@ -1339,22 +1371,33 @@ function saveBooking() {
 
   if(!nome && !ora) { alert('Inserisci almeno un orario o un nome.'); return; }
 
-  // Blocca se qualche tavolo selezionato si sovrappone con un'altra prenotazione
+  // Controlla sovrapposizioni tavoli
   if(tavoli.length) {
     const newBooking = { ora, oraTo, tavoli };
-    const conflicts = [];
+    const hardConflicts = [];
+    const softConflicts = [];
     tavoli.forEach(t => {
       const dup = bookings().find(b =>
         b.id!==editingId &&
         getTavoli(b).includes(t) &&
         timeOverlap(newBooking, b)
       );
-      if(dup) conflicts.push(`Tavolo ${t} → "${dup.nome||'—'}" (${dup.oraTo?`${dup.ora}→${dup.oraTo}`:dup.ora})`);
+      if(dup) {
+        const label = `Tavolo ${t} era occupato da "${dup.nome||'—'}" (${dup.oraTo?`${dup.ora}→${dup.oraTo}`:dup.ora})`;
+        if(bookingIsInPast(dup)) softConflicts.push(label);
+        else hardConflicts.push(`Tavolo ${t} → "${dup.nome||'—'}" (${dup.oraTo?`${dup.ora}→${dup.oraTo}`:dup.ora})`);
+      }
     });
-    if(conflicts.length) {
-      document.getElementById('dup-msg').textContent = conflicts.join(' · ');
+    // Hard conflicts: block completely
+    if(hardConflicts.length) {
+      document.getElementById('dup-msg').textContent = hardConflicts.join(' · ');
       document.getElementById('dup-warning').classList.add('show');
       return;
+    }
+    // Soft conflicts: ask confirmation
+    if(softConflicts.length) {
+      const msg = softConflicts.join('\n') + '\n\nIl tavolo potrebbe essersi liberato. Prenotare comunque?';
+      if(!confirm(msg)) return;
     }
   }
   document.getElementById('dup-warning').classList.remove('show');
