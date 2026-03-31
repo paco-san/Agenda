@@ -284,7 +284,7 @@ color: #1a1a1a; background: #FFFFFF;
 border-top: 1px solid #e8e2da;
 }
 .notes-textarea::placeholder { color: #c8c0b4; font-style: italic; }
-.overlay { display: none; position: fixed; inset: 0; background: rgba(10,10,10,0.6); z-index: 200; backdrop-filter: blur(3px); align-items: center; justify-content: center; }
+.overlay { display: none; position: fixed; inset: 0; background: rgba(10,10,10,0.6); z-index: 200; backdrop-filter: blur(3px); align-items: flex-start; justify-content: center; padding-top: 5vh; }
 .overlay.open { display: flex; }
 .modal {
 background: #FFFFFF; border-radius: 4px; width: 92vw; max-width: 460px;
@@ -565,20 +565,18 @@ body { background: white; }
       <label class="field-label">Nome</label>
       <input type="text" id="f-nome" placeholder="Cognome / Nome" autocomplete="off">
     </div>
-    <div class="field-group">
-      <label class="field-label">N° Persone</label>
+    <div class="field-group" style="max-width:90px;flex-shrink:0;">
+      <label class="field-label">N° Pers.</label>
       <select id="f-np"><option value="">—</option></select>
     </div>
   </div>
-  <div class="field-row">
-    <div class="field-group">
-      <label class="field-label">Tel / Note</label>
-      <input type="text" id="f-tel" placeholder="Telefono, allergie, richieste…" autocomplete="off">
-    </div>
-    <div class="field-group">
-      <label class="field-label">Tavoli <span id="tavoli-count" style="font-weight:400;text-transform:none;letter-spacing:0;color:#4a4a4a"></span></label>
-      <div id="tavoli-picker" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
-    </div>
+  <div class="field-group">
+    <label class="field-label">Tel / Note</label>
+    <input type="text" id="f-tel" placeholder="Telefono, allergie, richieste…" autocomplete="off">
+  </div>
+  <div class="field-group">
+    <label class="field-label">Tavoli <span id="tavoli-count" style="font-weight:400;text-transform:none;letter-spacing:0;color:#4a4a4a"></span></label>
+    <div id="tavoli-picker" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
   </div>
   <!-- ATT tag toggle -->
   <div class="field-group" id="att-row" style="display:none">
@@ -821,9 +819,16 @@ function populateSelects() {
   const toEl   = document.getElementById('f-ora-to');
   ALL_FROM.forEach(s => fromEl.innerHTML+=`<option value="${s}">${s}</option>`);
   ALL_TO.forEach(s   => toEl.innerHTML+=`<option value="${s}">${s}</option>`);
-  // Build tavoli picker buttons (done once)
+  // Build tavoli picker buttons with group separator
   const picker = document.getElementById('tavoli-picker');
-  TAVOLI.forEach(t => {
+  const GROUP1 = [3,4,5,6,7,8];
+  TAVOLI.forEach((t, idx) => {
+    // Add separator between group 1 and group 2
+    if(t === 9) {
+      const sep = document.createElement('div');
+      sep.style.cssText = 'width:100%;height:1px;background:#e8e2da;margin:3px 0;';
+      picker.appendChild(sep);
+    }
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'tav-btn';
