@@ -63,7 +63,13 @@ font-family: ‘Courier New’, monospace; font-size: 12px;
 }
 .date-nav {
 background: #111; border-bottom: 1px solid #333;
-display: flex; align-items: center; justify-content: center; padding: 8px 16px;
+display: flex; flex-direction: column; align-items: center; padding: 6px 16px 0;
+}
+.date-nav-row {
+display: flex; align-items: center; justify-content: center; width: 100%;
+}
+.date-nav-ferie-row {
+display: flex; justify-content: center; padding: 5px 0 6px;
 }
 .date-nav-btn {
 background: none; border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.7);
@@ -98,7 +104,7 @@ padding: 8px 10px; border-bottom: 1px solid #e8e2da; font-size: 13px;
 .ferie-empty { font-size: 12px; color: #4a4a4a; font-style: italic; padding: 8px 0; }
 .date-center {
 display: flex; flex-direction: column; align-items: center;
-min-width: 220px; padding: 0 16px; cursor: pointer;
+min-width: 0; flex: 1; max-width: 260px; padding: 0 12px; cursor: pointer;
 }
 .date-day { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: #C9A84C; }
 .date-full { font-family: ‘Playfair Display’, serif; font-size: 18px; color: white; }
@@ -311,7 +317,7 @@ padding: 12px 16px; overflow-y: auto; flex: 1;
 -webkit-overflow-scrolling: touch;
 overscroll-behavior: contain;
 }
-.field-group { margin-bottom: 10px; }
+.field-group { margin-bottom: 13px; }
 .field-label { font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #B03A2E; margin-bottom: 5px; display: block; }
 .field-row { display: flex; gap: 10px; }
 
@@ -409,14 +415,18 @@ body { background: white; }
 </div>
 
 <div class="date-nav">
-  <button class="date-nav-btn" id="btn-prev" onclick="changeDate(-1)">‹</button>
-  <div class="date-center" onclick="openDatePicker()">
-    <div class="date-day" id="nav-day">—</div>
-    <div class="date-full" id="nav-date">Tocca per scegliere data</div>
+  <div class="date-nav-row">
+    <button class="date-nav-btn" id="btn-prev" onclick="changeDate(-1)">‹</button>
+    <div class="date-center" onclick="openDatePicker()">
+      <div class="date-day" id="nav-day">—</div>
+      <div class="date-full" id="nav-date">Tocca per scegliere data</div>
+    </div>
+    <button class="date-nav-btn" id="btn-next" onclick="changeDate(1)">›</button>
+    <input type="date" id="hidden-date-input" onchange="onDatePickerChange()">
   </div>
-  <button class="date-nav-btn" id="btn-next" onclick="changeDate(1)">›</button>
-  <input type="date" id="hidden-date-input" onchange="onDatePickerChange()">
-  <button class="btn-ferie" id="btn-ferie-toggle" onclick="toggleFerieDay()" title="Segna come giorno di ferie" style="margin-left:10px"></button>
+  <div class="date-nav-ferie-row">
+    <button class="btn-ferie" id="btn-ferie-toggle" onclick="toggleFerieDay()" title="Segna come giorno di ferie"></button>
+  </div>
 </div>
 
 <div class="closed-banner" id="closed-banner">
