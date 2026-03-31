@@ -284,7 +284,15 @@ color: #1a1a1a; background: #FFFFFF;
 border-top: 1px solid #e8e2da;
 }
 .notes-textarea::placeholder { color: #c8c0b4; font-style: italic; }
-.overlay { display: none; position: fixed; inset: 0; background: rgba(10,10,10,0.6); z-index: 200; backdrop-filter: blur(3px); align-items: flex-start; justify-content: center; padding-top: 5vh; }
+.overlay {
+display: none; position: fixed; inset: 0;
+background: rgba(10,10,10,0.6); z-index: 200;
+backdrop-filter: blur(3px);
+align-items: flex-start; justify-content: center;
+padding: 5vh 0 2vh;
+overflow-y: auto;
+-webkit-overflow-scrolling: touch;
+}
 .overlay.open { display: flex; }
 .modal {
 background: #FFFFFF; border-radius: 4px; width: 92vw; max-width: 460px;
@@ -298,10 +306,14 @@ max-height: 92vh; overflow: hidden;
 .modal-header p { font-size: 10px; opacity: 0.5; margin-top: 1px; letter-spacing: 0.06em; }
 .btn-close { background: none; border: none; color: white; font-size: 22px; cursor: pointer; opacity: 0.6; padding: 4px; }
 .btn-close:hover { opacity: 1; }
-.modal-body { padding: 12px 16px; overflow-y: auto; flex: 1; }
+.modal-body {
+padding: 12px 16px; overflow-y: auto; flex: 1;
+-webkit-overflow-scrolling: touch;
+overscroll-behavior: contain;
+}
 .field-group { margin-bottom: 10px; }
 .field-label { font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #B03A2E; margin-bottom: 5px; display: block; }
-.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.field-row { display: flex; gap: 10px; }
 
 input, select {
 width: 100%; border: 1px solid #c8c0b4; border-radius: 3px;
@@ -560,12 +572,12 @@ body { background: white; }
     </div>
   </div>
 
-  <div class="field-row">
+  <div class="field-row" style="gap:12px;">
     <div class="field-group">
       <label class="field-label">Nome</label>
       <input type="text" id="f-nome" placeholder="Cognome / Nome" autocomplete="off">
     </div>
-    <div class="field-group" style="max-width:90px;flex-shrink:0;">
+    <div class="field-group" style="max-width:88px;flex-shrink:0;">
       <label class="field-label">N° Pers.</label>
       <select id="f-np"><option value="">—</option></select>
     </div>
@@ -992,8 +1004,9 @@ function openFerieManager() {
   renderFerieList();
   document.getElementById('f-ferie-date').value = '';
   document.getElementById('ferie-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
 }
-function closeFerieModal() { document.getElementById('ferie-overlay').classList.remove('open'); }
+function closeFerieModal() { document.getElementById('ferie-overlay').classList.remove('open'); document.body.style.overflow = ''; }
 function closeFerieOutside(e) { if(e.target===document.getElementById('ferie-overlay')) closeFerieModal(); }
 
 function renderFerieList() {
@@ -1303,6 +1316,7 @@ function openModal(panel, id) {
     setPickerSelection([], null, null);
   }
   document.getElementById('modal-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
   setTimeout(()=>document.getElementById('f-nome').focus(),200);
 }
 
@@ -1378,7 +1392,11 @@ function updateAttSlider() {
   document.getElementById('att-slider').style.background = on ? '#C9A84C' : '#c8c0b4';
 }
 
-function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); editingId=null; }
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+  editingId=null;
+}
 function closeModalOutside(e) { if(e.target===document.getElementById('modal-overlay')) closeModal(); }
 
 function saveBooking() {
