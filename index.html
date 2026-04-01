@@ -1292,12 +1292,15 @@ function openModal(panel, id) {
   const b = id ? bookings().find(x=>x.id===id) : null;
   document.getElementById('modal-title').textContent = b ? 'Modifica Prenotazione' : 'Nuova Prenotazione';
   const subEl = document.getElementById('modal-subtitle');
+  // Format current date for display
+  const d = new Date(currentDate + 'T12:00:00');
+  const dateLabel = `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
   if(b) {
-    subEl.textContent = b.panel===1 ? '↪ Prima serata (19:00–20:30)' : '↪ Seconda serata (20:45–oltre)';
+    subEl.innerHTML = `${dateLabel} &nbsp;·&nbsp; ${b.panel===1 ? '↪ Prima serata' : '↪ Seconda serata'}`;
     subEl.style.color = b.panel===1 ? '#C9A84C' : '#E8A49C';
   } else {
-    subEl.textContent = "Serata assegnata automaticamente in base all'orario";
-    subEl.style.color = '';
+    subEl.textContent = dateLabel;
+    subEl.style.color = 'rgba(255,255,255,0.5)';
   }
   document.getElementById('btn-delete').style.display = b ? 'block' : 'none';
   document.getElementById('btn-swap').style.display = b ? 'block' : 'none';
