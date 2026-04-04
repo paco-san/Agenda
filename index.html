@@ -1636,6 +1636,15 @@ document.getElementById('f-ora-from').addEventListener('change', function() {
   onOraChange(this.value);
   const sel = getSelectedTavoli();
   setPickerSelection(sel, this.value, oraTo||null);
+  markDirty();
+});
+
+// Aggiorna il picker anche quando cambia l'orario di fine fascia
+document.getElementById('f-ora-to').addEventListener('change', function() {
+  const oraFrom = document.getElementById('f-ora-from').value;
+  const sel = getSelectedTavoli();
+  setPickerSelection(sel, oraFrom||null, this.value||null);
+  markDirty();
 });
 </script>
 
