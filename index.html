@@ -215,6 +215,19 @@ letter-spacing: 0.04em; margin-left: 4px;
 text-transform: uppercase;
 }
 
+/* Save confirmation toast */
+.save-toast {
+position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px);
+background: #1E8449; color: white; padding: 10px 22px;
+border-radius: 24px; font-family: ‘Lato’, sans-serif; font-size: 14px; font-weight: 700;
+box-shadow: 0 4px 20px rgba(0,0,0,0.3); z-index: 9999;
+opacity: 0; transition: opacity 0.2s ease, transform 0.2s ease;
+pointer-events: none; white-space: nowrap;
+}
+.save-toast.show {
+opacity: 1; transform: translateX(-50%) translateY(0);
+}
+
 /* History section */
 .history-section {
 margin: 0 14px 28px; background: #FFFFFF;
@@ -570,7 +583,7 @@ body { background: white; }
       <button class="ora-mode-btn" id="mode-range" onclick="setOraMode('range')">Fascia oraria</button>
     </div>
     <div id="ora-single-field">
-      <select id="f-ora"><option value="">— Seleziona orario —</option></select>
+      <select id="f-ora" onchange="markDirty()"><option value="">— Seleziona orario —</option></select>
     </div>
     <div id="ora-range-field" style="display:none">
       <div class="range-fields">
@@ -585,16 +598,16 @@ body { background: white; }
   <div class="field-row" style="gap:12px;">
     <div class="field-group">
       <label class="field-label">Nome</label>
-      <input type="text" id="f-nome" placeholder="Cognome / Nome" autocomplete="off">
+      <input type="text" id="f-nome" placeholder="Cognome / Nome" autocomplete="off" oninput="markDirty()">
     </div>
     <div class="field-group" style="max-width:88px;flex-shrink:0;">
       <label class="field-label">N° Pers.</label>
-      <select id="f-np"><option value="">—</option></select>
+      <select id="f-np" onchange="markDirty()"><option value="">—</option></select>
     </div>
   </div>
   <div class="field-group">
     <label class="field-label">Tel / Note</label>
-    <input type="text" id="f-tel" placeholder="Telefono, allergie, richieste…" autocomplete="off">
+    <input type="text" id="f-tel" placeholder="Telefono, allergie, richieste…" autocomplete="off" oninput="markDirty()">
   </div>
   <div class="field-group">
     <label class="field-label">Tavoli <span id="tavoli-count" style="font-weight:400;text-transform:none;letter-spacing:0;color:#4a4a4a"></span></label>
@@ -897,7 +910,8 @@ function setPickerSelection(selected=[], ora=null, oraTo=null) {
 function toggleTavoloBtn(btn) {
   if(btn.classList.contains('conflict')) return; // hard conflict: blocked
   btn.classList.toggle('selected');
-  btn.classList.remove('conflict-soft'); // clear soft warning once selected
+  btn.classList.remove('conflict-soft');
+  markDirty();
   updateTavoliCount();
 }
 
@@ -1328,6 +1342,7 @@ function openModal(panel, id) {
     document.getElementById('f-att-toggle').checked = false;
     setPickerSelection([], null, null);
   }
+  _modalDirty = false;
   document.getElementById('modal-overlay').classList.add('open');
   document.body.style.overflow = 'hidden';
   setTimeout(()=>document.getElementById('f-nome').focus(),200);
@@ -1397,7 +1412,9 @@ function doSwap(otherId) {
   addHistory('↔️', `Scambio tavoli: <strong>${a.nome||'—'}</strong> ↔ <strong>${b.nome||'—'}</strong>`);
   saveData();
   render();
+  _modalDirty = false;
   closeModal();
+  showToast('↔ Tavoli scambiati', '#7D6608');
 }
 
 function updateAttSlider() {
@@ -1405,10 +1422,27 @@ function updateAttSlider() {
   document.getElementById('att-slider').style.background = on ? '#C9A84C' : '#c8c0b4';
 }
 
+// Toast di conferma salvataggio
+function showToast(msg, color) {
+  const t = document.getElementById('save-toast');
+  t.textContent = msg;
+  t.style.background = color || '#1E8449';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// Dirty tracking — rileva se l'utente ha modificato qualcosa nel modal
+let _modalDirty = false;
+function markDirty() { _modalDirty = true; }
+
 function closeModal() {
+  if(_modalDirty) {
+    if(!confirm('Hai modifiche non salvate. Vuoi chiudere senza salvare?')) return;
+  }
   document.getElementById('modal-overlay').classList.remove('open');
   document.body.style.overflow = '';
-  editingId=null;
+  _modalDirty = false;
+  editingId = null;
 }
 function closeModalOutside(e) { if(e.target===document.getElementById('modal-overlay')) closeModal(); }
 
@@ -1478,7 +1512,9 @@ function saveBooking() {
   }
   saveData();
   render();
+  _modalDirty = false; // reset before close to avoid dirty warning
   closeModal();
+  showToast('✓ Prenotazione salvata');
 }
 
 function deleteBooking() {
@@ -1490,7 +1526,10 @@ function deleteBooking() {
     addHistory('🗑️', `Eliminata: <strong>${b.nome||'—'}</strong> ${oraStr} tavolo ${getTavoli(b).join('+')}`);
   }
   setBookings(bookings().filter(x=>x.id!==editingId));
-  saveData(); render(); closeModal();
+  saveData(); render();
+  _modalDirty = false;
+  closeModal();
+  showToast('🗑 Prenotazione eliminata', '#922B21');
 }
 
 document.addEventListener('keydown', e => {
@@ -1524,5 +1563,6 @@ document.getElementById('f-ora-from').addEventListener('change', function() {
 });
 </script>
 
+<div class="save-toast" id="save-toast"></div>
 </body>
 </html>
