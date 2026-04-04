@@ -756,10 +756,11 @@ function getHistory() {
 function addHistory(icon, text) {
   const now = new Date();
   const time = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
-  const entry = { time, icon, text };
+  const dateStr = `${DAYS[now.getDay()]} ${now.getDate()} ${MONTHS[now.getMonth()]}`;
+  const entry = { time, dateStr, icon, text };
   const history = getHistory();
-  history.unshift(entry); // newest first
-  if(history.length > 50) history.pop(); // keep max 50
+  history.unshift(entry);
+  if(history.length > 50) history.pop();
   allData[currentDate + '__history'] = history;
 }
 function renderHistory() {
@@ -772,7 +773,10 @@ function renderHistory() {
   }
   el.innerHTML = history.map(e =>
     `<div class="history-item">
-      <span class="history-time">${e.time}</span>
+      <span class="history-time" style="min-width:60px;">
+        <span style="display:block">${e.time}</span>
+        <span style="display:block;font-size:9px;color:#c8c0b4;font-weight:400;">${e.dateStr||''}</span>
+      </span>
       <span class="history-icon">${e.icon}</span>
       <span class="history-text">${e.text}</span>
     </div>`
@@ -1364,19 +1368,28 @@ function toggleSwapPanel() {
   const current = bookings().find(x => x.id === editingId);
   if(!current) return;
 
+  // All bookings from both panels except current, with tavoli assigned
   const others = bookings().filter(b =>
     b.id !== editingId &&
-    b.panel === current.panel &&
     getTavoli(b).length > 0
-  ).sort((a,b) => (toMin(a.ora)||0) - (toMin(b.ora)||0));
+  ).sort((a,b) => (a.panel - b.panel) || (toMin(a.ora)||0) - (toMin(b.ora)||0));
 
   const list = document.getElementById('swap-list');
   list.innerHTML = '';
 
   if(others.length === 0) {
-    list.innerHTML = '<div style="font-size:12px;color:#4a4a4a;padding:6px">Nessuna altra prenotazione con tavoli assegnati in questa serata.</div>';
+    list.innerHTML = '<div style="font-size:12px;color:#4a4a4a;padding:6px">Nessuna altra prenotazione con tavoli assegnati.</div>';
   } else {
+    let lastPanel = null;
     others.forEach(b => {
+      // Add panel separator header
+      if(b.panel !== lastPanel) {
+        const sep = document.createElement('div');
+        sep.style.cssText = 'font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#B03A2E;padding:6px 10px 2px;';
+        sep.textContent = b.panel === 1 ? '— Prima Serata —' : '— Seconda Serata —';
+        list.appendChild(sep);
+        lastPanel = b.panel;
+      }
       const tavoli = getTavoli(b).join(', ');
       const oraLabel = b.oraTo ? b.ora+'→'+b.oraTo : (b.ora||'—');
       const div = document.createElement('div');
