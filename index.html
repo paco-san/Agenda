@@ -215,6 +215,49 @@ letter-spacing: 0.04em; margin-left: 4px;
 text-transform: uppercase;
 }
 
+/* Readonly mode */
+.readonly-banner {
+display: none; background: #1a1a1a; border-bottom: 2px solid #C9A84C;
+padding: 8px 16px; text-align: center;
+font-family: ‘Lato’, sans-serif; font-size: 12px; color: #C9A84C;
+letter-spacing: 0.08em; font-weight: 700;
+}
+.readonly-banner.show { display: block; }
+.readonly-mode .add-row-btn { pointer-events: none; opacity: 0.3; }
+.readonly-mode tbody tr { cursor: default; }
+
+/* Password modal */
+.pwd-overlay {
+display: none; position: fixed; inset: 0;
+background: rgba(10,10,10,0.85); z-index: 9000;
+align-items: center; justify-content: center;
+backdrop-filter: blur(4px);
+}
+.pwd-overlay.open { display: flex; }
+.pwd-box {
+background: #1a1a1a; border-radius: 6px; padding: 28px 24px;
+width: 88vw; max-width: 340px; box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+}
+.pwd-box h3 { font-family: ‘Playfair Display’, serif; color: white; font-size: 18px; margin-bottom: 6px; }
+.pwd-box p { font-size: 12px; color: #4a4a4a; margin-bottom: 18px; }
+.pwd-input {
+width: 100%; padding: 10px 12px; border-radius: 4px; border: 1px solid #333;
+background: #111; color: white; font-size: 16px; font-family: ‘Lato’, sans-serif;
+margin-bottom: 12px; outline: none; box-sizing: border-box;
+}
+.pwd-input:focus { border-color: #C9A84C; }
+.pwd-error { color: #E8A49C; font-size: 12px; margin-bottom: 10px; display: none; }
+.pwd-error.show { display: block; }
+.pwd-btn {
+width: 100%; padding: 11px; background: #B03A2E; color: white; border: none;
+border-radius: 4px; font-family: ‘Lato’, sans-serif; font-size: 14px;
+font-weight: 700; cursor: pointer; margin-bottom: 8px;
+}
+.pwd-btn-skip {
+width: 100%; padding: 9px; background: none; color: #4a4a4a; border: none;
+font-family: ‘Lato’, sans-serif; font-size: 13px; cursor: pointer;
+}
+
 /* Save confirmation toast */
 .save-toast {
 position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px);
@@ -419,6 +462,7 @@ body { background: white; }
   <span id="sync-status" class="sync-status"></span>
 </div>
 
+<div class="readonly-banner" id="readonly-banner">👁 MODALITÀ SOLA LETTURA — Accedi per modificare le prenotazioni</div>
 <div class="config-banner" id="config-banner">
   <div class="config-banner-icon">⚙️</div>
   <div class="config-banner-text">
@@ -914,6 +958,73 @@ function startRealtime() {
 
 startRealtime();
 
+// ── MODALITÀ SOLA LETTURA / PASSWORD ─────────────────────────────────────────
+const EDIT_PASSWORD = 'Ladelizios@1987';
+const STORAGE_KEY   = 'agenda_auth_v1';
+let isReadOnly = true;
+
+function isAuthenticated() {
+  try { return localStorage.getItem(STORAGE_KEY) === 'ok'; } catch(e) { return false; }
+}
+function setAuthenticated() {
+  try { localStorage.setItem(STORAGE_KEY, 'ok'); } catch(e) {}
+}
+
+function checkPassword() {
+  const val = document.getElementById('pwd-input').value;
+  if(val === EDIT_PASSWORD) {
+    setAuthenticated();
+    closePwdModal();
+    enableEditMode();
+  } else {
+    document.getElementById('pwd-error').classList.add('show');
+    document.getElementById('pwd-input').value = '';
+    document.getElementById('pwd-input').focus();
+  }
+}
+
+function closePwdModal() {
+  document.getElementById('pwd-overlay').classList.remove('open');
+  document.getElementById('pwd-input').value = '';
+  document.getElementById('pwd-error').classList.remove('show');
+}
+
+function enableEditMode() {
+  isReadOnly = false;
+  document.getElementById('readonly-banner').classList.remove('show');
+  document.body.classList.remove('readonly-mode');
+}
+
+function enableReadOnlyMode() {
+  isReadOnly = true;
+  document.getElementById('readonly-banner').classList.add('show');
+  document.body.classList.add('readonly-mode');
+}
+
+function initAccessControl() {
+  // Check URL param
+  const params = new URLSearchParams(window.location.search);
+  const forceReadonly = params.get('view') === 'readonly';
+
+  if(forceReadonly) {
+    enableReadOnlyMode();
+  } else if(isAuthenticated()) {
+    enableEditMode();
+  } else {
+    // Show password modal
+    enableReadOnlyMode();
+    document.getElementById('pwd-overlay').classList.add('open');
+    setTimeout(() => document.getElementById('pwd-input').focus(), 200);
+  }
+}
+
+// Enter key on password input
+document.getElementById('pwd-input').addEventListener('keydown', e => {
+  if(e.key === 'Enter') checkPassword();
+});
+
+initAccessControl();
+
 function populateSelects() {
   const np = document.getElementById('f-np');
   for(let i=1;i<=25;i++) np.innerHTML+=`<option value="${i}">${i}</option>`;
@@ -1362,6 +1473,8 @@ function updateStats() {
 }
 
 function openModal(panel, id) {
+  // Block in readonly mode
+  if(isReadOnly) return;
   // Block new bookings on closed days
   if(!id && isClosed(currentDate)) {
     const reason = isClosed(currentDate) === 'domenica' ? 'Il ristorante è chiuso la domenica.' : 'Questo giorno è segnato come ferie.';
@@ -1649,5 +1762,18 @@ document.getElementById('f-ora-to').addEventListener('change', function() {
 </script>
 
 <div class="save-toast" id="save-toast"></div>
+
+<!-- PASSWORD MODAL -->
+
+<div class="pwd-overlay" id="pwd-overlay">
+  <div class="pwd-box">
+    <h3>🔐 Accesso modifica</h3>
+    <p>Inserisci la password per abilitare la modifica delle prenotazioni.</p>
+    <input type="password" class="pwd-input" id="pwd-input" placeholder="Password…">
+    <div class="pwd-error" id="pwd-error">Password errata. Riprova.</div>
+    <button class="pwd-btn" onclick="checkPassword()">Accedi</button>
+    <button class="pwd-btn-skip" onclick="closePwdModal()">Continua in sola lettura</button>
+  </div>
+</div>
 </body>
 </html>
