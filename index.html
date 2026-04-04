@@ -851,6 +851,69 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
+// ── SUPABASE REALTIME — aggiornamento in tempo reale su tutti i dispositivi ──
+function startRealtime() {
+  if(!configured) return;
+
+  // Connect via WebSocket to Supabase Realtime
+  const wsUrl = SUPABASE_URL.replace('https://', 'wss://') + '/realtime/v1/websocket?apikey=' + SUPABASE_KEY + '&vsn=1.0.0';
+  let ws;
+  let heartbeatInterval;
+  let reconnectTimeout;
+  let ref = 0;
+
+  function connect() {
+    ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+      console.log('Realtime connesso');
+      // Join the realtime channel for agenda_giorni
+      ws.send(JSON.stringify({
+        topic: 'realtime:public:agenda_giorni',
+        event: 'phx_join',
+        payload: { config: { broadcast: { self: false }, presence: { key: '' }, postgres_changes: [{ event: '*', schema: 'public', table: 'agenda_giorni' }] } },
+        ref: String(++ref)
+      }));
+      // Heartbeat ogni 30s
+      heartbeatInterval = setInterval(() => {
+        if(ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: String(++ref) }));
+        }
+      }, 30000);
+    };
+
+    ws.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        // Aggiorna quando un altro dispositivo salva (postgres_changes)
+        if(msg.event === 'postgres_changes' || (msg.payload && msg.payload.data && msg.payload.data.type)) {
+          const modalOpen = document.getElementById('modal-overlay').classList.contains('open');
+          if(!modalOpen) {
+            loadData().then(() => {
+              render();
+              setSyncStatus('ok');
+            });
+          }
+        }
+      } catch(err) {}
+    };
+
+    ws.onclose = () => {
+      clearInterval(heartbeatInterval);
+      // Riconnetti dopo 5 secondi
+      reconnectTimeout = setTimeout(connect, 5000);
+    };
+
+    ws.onerror = () => {
+      ws.close();
+    };
+  }
+
+  connect();
+}
+
+startRealtime();
+
 function populateSelects() {
   const np = document.getElementById('f-np');
   for(let i=1;i<=25;i++) np.innerHTML+=`<option value="${i}">${i}</option>`;
