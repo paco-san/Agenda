@@ -1018,12 +1018,16 @@ function initAccessControl() {
   }
 }
 
-// Enter key on password input
-document.getElementById('pwd-input').addEventListener('keydown', e => {
-  if(e.key === 'Enter') checkPassword();
+// Enter key on password input — wrapped in DOMContentLoaded to ensure element exists
+document.addEventListener('DOMContentLoaded', () => {
+  const pwdInput = document.getElementById('pwd-input');
+  if(pwdInput) {
+    pwdInput.addEventListener('keydown', e => {
+      if(e.key === 'Enter') checkPassword();
+    });
+  }
+  initAccessControl();
 });
-
-initAccessControl();
 
 function populateSelects() {
   const np = document.getElementById('f-np');
