@@ -841,6 +841,7 @@ function clearHistory() {
   }
   populateSelects();
   render();
+  initAccessControl();
 })();
 
 async function reloadFromServer() {
@@ -1018,15 +1019,9 @@ function initAccessControl() {
   }
 }
 
-// Enter key on password input — wrapped in DOMContentLoaded to ensure element exists
-document.addEventListener('DOMContentLoaded', () => {
-  const pwdInput = document.getElementById('pwd-input');
-  if(pwdInput) {
-    pwdInput.addEventListener('keydown', e => {
-      if(e.key === 'Enter') checkPassword();
-    });
-  }
-  initAccessControl();
+// Enter key on password input
+document.getElementById('pwd-input') && document.getElementById('pwd-input').addEventListener('keydown', e => {
+  if(e.key === 'Enter') checkPassword();
 });
 
 function populateSelects() {
