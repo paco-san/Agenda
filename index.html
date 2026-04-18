@@ -932,17 +932,21 @@ function startRealtime() {
       }, 30000);
     };
 
+    let realtimeDebounce = null;
     ws.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data);
-        // Aggiorna quando un altro dispositivo salva (postgres_changes)
         if(msg.event === 'postgres_changes' || (msg.payload && msg.payload.data && msg.payload.data.type)) {
           const modalOpen = document.getElementById('modal-overlay').classList.contains('open');
           if(!modalOpen) {
-            loadData().then(() => {
-              render();
-              setSyncStatus('ok');
-            });
+            // Debounce 1.5s so local save completes before remote reload
+            clearTimeout(realtimeDebounce);
+            realtimeDebounce = setTimeout(() => {
+              loadData().then(() => {
+                render();
+                setSyncStatus('ok');
+              });
+            }, 1500);
           }
         }
       } catch(err) {}
@@ -1487,7 +1491,7 @@ function renderPanel(panel) {
   });
 }
 
-async function toggleArrived(id) {
+function toggleArrived(id) {
   const bs = bookings();
   const b = bs.find(x=>x.id===id);
   if(b) {
@@ -1496,7 +1500,8 @@ async function toggleArrived(id) {
     const icon = b.arrived ? '✅' : '↩️';
     const action = b.arrived ? 'Arrivato' : 'Rimosso arrivo';
     addHistory(icon, `${action}: <strong>${b.nome||'—'}</strong>`);
-    await saveData(); render();
+    render();
+    saveData(); // save in background
   }
 }
 
@@ -1622,7 +1627,7 @@ function toggleSwapPanel() {
   panel.classList.add('show');
 }
 
-async function doSwap(otherId) {
+function doSwap(otherId) {
   const bs = bookings();
   const a = bs.find(x => x.id === editingId);
   const b = bs.find(x => x.id === otherId);
@@ -1637,11 +1642,11 @@ async function doSwap(otherId) {
 
   setBookings(bs);
   addHistory('↔️', `Scambio tavoli: <strong>${a.nome||'—'}</strong> ↔ <strong>${b.nome||'—'}</strong>`);
-  await saveData();
   render();
   _modalDirty = false;
   closeModal();
   showToast('↔ Tavoli scambiati', '#7D6608');
+  saveData(); // save in background
 }
 
 function updateAttSlider() {
@@ -1673,7 +1678,7 @@ function closeModal() {
 }
 function closeModalOutside(e) { if(e.target===document.getElementById('modal-overlay')) closeModal(); }
 
-async function saveBooking() {
+function saveBooking() {
   const isRange = document.getElementById('mode-range').classList.contains('active');
   const ora    = isRange ? document.getElementById('f-ora-from').value : document.getElementById('f-ora').value;
   const oraTo  = isRange ? document.getElementById('f-ora-to').value   : null;
@@ -1737,14 +1742,14 @@ async function saveBooking() {
   } else {
     addHistory('➕', `Aggiunta: <strong>${nome||'—'}</strong> ${oraStr} ${tavoliStr}`);
   }
-  await saveData();
   render();
   _modalDirty = false;
   closeModal();
   showToast('✓ Prenotazione salvata');
+  saveData(); // save in background
 }
 
-async function deleteBooking() {
+function deleteBooking() {
   if(!editingId) return;
   if(!confirm('Eliminare questa prenotazione?')) return;
   const b = bookings().find(x=>x.id===editingId);
@@ -1753,11 +1758,11 @@ async function deleteBooking() {
     addHistory('🗑️', `Eliminata: <strong>${b.nome||'—'}</strong> ${oraStr} tavolo ${getTavoli(b).join('+')}`);
   }
   setBookings(bookings().filter(x=>x.id!==editingId));
-  await saveData();
   render();
   _modalDirty = false;
   closeModal();
   showToast('🗑 Prenotazione eliminata', '#922B21');
+  saveData(); // save in background
 }
 
 document.addEventListener('keydown', e => {
