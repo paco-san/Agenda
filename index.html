@@ -765,8 +765,11 @@ async function loadData() {
   }
 }
 
+let _isSaving = false;
+
 async function saveData() {
   if(!configured) return;
+  _isSaving = true;
   try {
     setSyncStatus('saving');
     const bookingsPayload = allData[currentDate] || [];
@@ -774,10 +777,8 @@ async function saveData() {
     const notesKey = currentDate + '__notes';
     const notes = allData[notesKey] || '';
     await sbUpsert('agenda_giorni', { data_key: notesKey, payload: JSON.stringify(notes) });
-    // Save ferie list
     const ferie = allData['__ferie__'] || [];
     await sbUpsert('agenda_giorni', { data_key: '__ferie__', payload: JSON.stringify(ferie) });
-    // Save history for current date
     const historyKey = currentDate + '__history';
     const history = allData[historyKey] || [];
     await sbUpsert('agenda_giorni', { data_key: historyKey, payload: JSON.stringify(history) });
@@ -785,6 +786,9 @@ async function saveData() {
   } catch(e) {
     setSyncStatus('error', 'Salv: ' + (e.message||e).toString().slice(0,40));
     console.error('saveData error:', e);
+  } finally {
+    // Keep flag active 2s after save completes so realtime doesn't overwrite
+    setTimeout(() => { _isSaving = false; }, 2000);
   }
 }
 
@@ -940,17 +944,21 @@ function startRealtime() {
     ws.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data);
-        if(msg.event === 'postgres_changes' || (msg.payload && msg.payload.data && msg.payload.data.type)) {
+        // Only trigger on actual database changes, not heartbeats or join confirmations
+        const isChange = msg.event === 'postgres_changes' ||
+          (msg.payload && msg.payload.data && msg.payload.data.table === 'agenda_giorni');
+        if(isChange) {
           const modalOpen = document.getElementById('modal-overlay').classList.contains('open');
-          if(!modalOpen) {
-            // Debounce 1.5s so local save completes before remote reload
+          if(!modalOpen && !_isSaving) {
             clearTimeout(realtimeDebounce);
             realtimeDebounce = setTimeout(() => {
-              loadData().then(() => {
-                render();
-                setSyncStatus('ok');
-              });
-            }, 1500);
+              if(!_isSaving) {
+                loadData().then(() => {
+                  render();
+                  setSyncStatus('ok');
+                });
+              }
+            }, 2000);
           }
         }
       } catch(err) {}
