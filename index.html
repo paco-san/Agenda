@@ -143,6 +143,8 @@ transition: all 0.15s; position: relative; overflow: hidden;
 .table-chip.occ-t2 .table-chip-n, .table-chip.occ-t2 .table-chip-info { color: #B03A2E; }
 .table-chip.occ-both { background: linear-gradient(135deg,#FEF3CD 50%,#FADBD8 50%); border-color: #aaa; }
 .table-chip.occ-both .table-chip-n, .table-chip.occ-both .table-chip-info { color: #1a1a1a; }
+.table-chip.free-tap { cursor: pointer; }
+.table-chip.free-tap:active { transform: scale(0.93); background: #c8f0d8; }
 .chip-bis { position: absolute; top: 1px; right: 3px; font-size: 7px; font-weight: 700; color: #B03A2E; }
 
 /* PANELS */
@@ -1437,6 +1439,22 @@ function renderTableMap() {
     }
 
     chip.innerHTML = `<div class="table-chip-n">${t}</div>${infoHTML}${isBis?'<div class="chip-bis">BIS</div>':''}`;
+
+    // Long-press on free table → quick walk-in booking
+    if(bookingsForT.length === 0 && !isClosed(currentDate) && !isReadOnly) {
+      chip.classList.add('free-tap');
+      let pressTimer = null;
+      chip.addEventListener('touchstart', () => {
+        pressTimer = setTimeout(() => quickWalkIn(ts), 600);
+      }, { passive: true });
+      chip.addEventListener('touchend', () => clearTimeout(pressTimer));
+      chip.addEventListener('touchmove', () => clearTimeout(pressTimer));
+      chip.addEventListener('mousedown', () => {
+        pressTimer = setTimeout(() => quickWalkIn(ts), 600);
+      });
+      chip.addEventListener('mouseup', () => clearTimeout(pressTimer));
+    }
+
     map.appendChild(chip);
   });
 }
@@ -1647,6 +1665,48 @@ function doSwap(otherId) {
   closeModal();
   showToast('↔ Tavoli scambiati', '#7D6608');
   saveData(); // save in background
+}
+
+// ── CLIENTE DI PASSAGGIO ─────────────────────────────────────────────────────
+function quickWalkIn(tavolo) {
+  if(isReadOnly) return;
+
+  // Round current time DOWN to nearest 15-min slot
+  const now = new Date();
+  const totalMin = now.getHours() * 60 + now.getMinutes();
+  const roundedMin = Math.floor(totalMin / 15) * 15;
+  const hh = String(Math.floor(roundedMin / 60)).padStart(2, '0');
+  const mm = String(roundedMin % 60).padStart(2, '0');
+  const ora = `${hh}:${mm}`;
+
+  // Determine panel
+  const panel = panelFromOra(ora);
+  const serataLabel = panel === 1 ? 'Prima serata' : 'Seconda serata';
+
+  // Confirm
+  if(!confirm(`📍 Tavolo ${tavolo}\n🕐 Orario: ${ora} (${serataLabel})\n\nSegno un cliente di passaggio?`)) return;
+
+  // Create booking
+  const newBooking = {
+    id: Date.now().toString(),
+    panel,
+    ora,
+    oraTo: null,
+    nome: 'Cliente di passaggio',
+    np: '',
+    tel: '',
+    att: false,
+    tavoli: [String(tavolo)],
+    arrived: false
+  };
+
+  const bs = bookings();
+  bs.push(newBooking);
+  setBookings(bs);
+  addHistory('🚶', `Cliente di passaggio: tavolo ${tavolo} ore ${ora}`);
+  render();
+  saveData();
+  showToast(`✓ Tavolo ${tavolo} — cliente di passaggio`);
 }
 
 function updateAttSlider() {
