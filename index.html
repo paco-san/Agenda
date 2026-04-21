@@ -134,6 +134,8 @@ display: flex; flex-direction: column; align-items: center; justify-content: cen
 width: 60px; height: 58px; border-radius: 4px; cursor: default;
 border: 1.5px solid #c8c0b4; background: #D5F5E3;
 transition: all 0.15s; position: relative; overflow: hidden;
+-webkit-user-select: none; user-select: none;
+-webkit-touch-callout: none;
 }
 .table-chip-n { font-family: ‘Playfair Display’, serif; font-size: 15px; font-weight: 700; color: #1E8449; line-height: 1; }
 .table-chip-info { font-size: 7px; font-weight: 700; letter-spacing: 0.02em; margin-top: 1px; text-align: center; color: #1E8449; line-height: 1.3; }
@@ -1440,17 +1442,24 @@ function renderTableMap() {
 
     chip.innerHTML = `<div class="table-chip-n">${t}</div>${infoHTML}${isBis?'<div class="chip-bis">BIS</div>':''}`;
 
-    // Long-press on free table → quick walk-in booking
-    if(bookingsForT.length === 0 && !isClosed(currentDate) && !isReadOnly) {
+    // Long-press on table → quick walk-in booking (free or occupied)
+    if(!isClosed(currentDate) && !isReadOnly) {
       chip.classList.add('free-tap');
       let pressTimer = null;
+      const handler = () => {
+        if(bookingsForT.length === 0) {
+          quickWalkIn(ts);
+        } else {
+          quickWalkInOccupied(ts, bookingsForT);
+        }
+      };
       chip.addEventListener('touchstart', () => {
-        pressTimer = setTimeout(() => quickWalkIn(ts), 600);
+        pressTimer = setTimeout(handler, 600);
       }, { passive: true });
       chip.addEventListener('touchend', () => clearTimeout(pressTimer));
       chip.addEventListener('touchmove', () => clearTimeout(pressTimer));
       chip.addEventListener('mousedown', () => {
-        pressTimer = setTimeout(() => quickWalkIn(ts), 600);
+        pressTimer = setTimeout(handler, 600);
       });
       chip.addEventListener('mouseup', () => clearTimeout(pressTimer));
     }
@@ -1697,16 +1706,87 @@ function quickWalkIn(tavolo) {
     tel: '',
     att: false,
     tavoli: [String(tavolo)],
-    arrived: false
+    arrived: true
   };
 
   const bs = bookings();
   bs.push(newBooking);
   setBookings(bs);
-  addHistory('🚶', `Cliente di passaggio: tavolo ${tavolo} ore ${ora}`);
+  addHistory('🚶✅', `Cliente di passaggio (arrivato): tavolo ${tavolo} ore ${ora}`);
   render();
   saveData();
   showToast(`✓ Tavolo ${tavolo} — cliente di passaggio`);
+}
+
+function quickWalkInOccupied(tavolo, existingBookings) {
+  if(isReadOnly) return;
+
+  // Round current time DOWN to nearest 15-min slot
+  const now = new Date();
+  const totalMin = now.getHours() * 60 + now.getMinutes();
+  const roundedMin = Math.floor(totalMin / 15) * 15;
+  const hh = String(Math.floor(roundedMin / 60)).padStart(2, '0');
+  const mm = String(roundedMin % 60).padStart(2, '0');
+  const ora = `${hh}:${mm}`;
+  const oraMin = roundedMin;
+
+  // Find the next upcoming booking for this table (soonest start after now)
+  const future = existingBookings
+    .filter(b => (toMin(b.ora) || 0) > oraMin)
+    .sort((a, b) => (toMin(a.ora)||0) - (toMin(b.ora)||0));
+
+  const next = future.length > 0 ? future[0] : existingBookings
+    .sort((a, b) => (toMin(a.ora)||0) - (toMin(b.ora)||0))[0];
+
+  const oraTo = next.ora; // walk-in ends when existing booking starts
+  const panel = panelFromOra(ora);
+  const serataLabel = panel === 1 ? 'Prima serata' : 'Seconda serata';
+
+  // Build info about existing booking
+  const existingInfo = existingBookings.map(b => {
+    const oraE = b.oraTo ? `${b.ora}→${b.oraTo}` : b.ora;
+    return `• ${b.nome||'—'} (${oraE})`;
+  }).join('
+');
+
+  if(!confirm(
+    `⚠️ Tavolo ${tavolo} già prenotato:
+${existingInfo}
+
+` +
+    `Segno un cliente di passaggio?
+🕐 ${ora} → ${oraTo} (${serataLabel})
+
+` +
+    `Il tavolo verrà marcato automaticamente come BIS.`
+  )) return;
+
+  // Check that ora < oraTo
+  if(toMin(ora) >= toMin(oraTo)) {
+    alert('Non è possibile: l'orario attuale è uguale o successivo alla prenotazione esistente.');
+    return;
+  }
+
+  const newBooking = {
+    id: Date.now().toString(),
+    panel,
+    ora,
+    oraTo,
+    nome: 'Cliente di passaggio',
+    np: '',
+    tel: '',
+    att: false,
+    tavoli: [String(tavolo)],
+    arrived: true
+  };
+
+  const bs = bookings();
+  bs.push(newBooking);
+  setBookings(bs);
+  addHistory('🚶✅', `Cliente di passaggio BIS (arrivato): tavolo ${tavolo} ore ${ora}→${oraTo}`);
+  render();
+  saveData();
+  showToast(`✓ Tavolo ${tavolo} BIS — ${ora}→${oraTo}`);
 }
 
 function updateAttSlider() {
