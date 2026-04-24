@@ -1359,17 +1359,18 @@ function timeOverlap(a, b) {
   const aStart = toMin(a.ora), bStart = toMin(b.ora);
   if(aStart===null || bStart===null) return false;
 
-  // Fisso + Fisso → sempre bloccato
-  if(!aIsRange && !bIsRange) return true;
+  // Fisso + Fisso → bloccato se stesso orario
+  if(!aIsRange && !bIsRange) return aStart === bStart;
 
-  // Fascia + Fisso → sovrapposti se il fisso è strettamente DENTRO la fascia
+  // Fascia + Fisso → bloccato se il fisso è >= inizio fascia e < fine fascia
+  // (20:00 fisso è bloccato da fascia 20:00→21:15; 21:15 fisso è libero)
   if(aIsRange && !bIsRange) {
     const aEnd = toMin(a.oraTo);
-    return bStart > aStart && bStart < aEnd;
+    return bStart >= aStart && bStart < aEnd;
   }
   if(!aIsRange && bIsRange) {
     const bEnd = toMin(b.oraTo);
-    return aStart > bStart && aStart < bEnd;
+    return aStart >= bStart && aStart < bEnd;
   }
 
   // Fascia + Fascia → sovrapposti se le fasce si intersecano (esclusi confini esatti)
