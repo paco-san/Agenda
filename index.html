@@ -222,6 +222,8 @@ tbody td:last-child { border-right: none; }
 .tav-btn.conflict { border-color: #aaa; background: #eee; color: #aaa; cursor: not-allowed; opacity: 0.5; }
 .tav-btn.conflict-soft { border-color: #C9A84C; background: #FEF9EC; color: #7D6608; cursor: pointer; }
 .tav-btn.conflict-soft:hover { border-color: #B03A2E; background: #FADBD8; color: #B03A2E; }
+.tav-btn.att-override { border-color: #C9A84C; background: #FEF9EC; color: #7D6608; cursor: pointer; border-style: dashed; }
+.tav-btn.att-override:hover { border-color: #B03A2E; background: #FADBD8; }
 
 .badge-bis {
   font-size: 10px; font-weight: 900; color: #B03A2E;
@@ -1124,6 +1126,14 @@ function getSelectedTavoli() {
 // Set picker selection and mark conflicts based on current ora/oraTo
 function setPickerSelection(selected=[], ora=null, oraTo=null) {
   const fakeBooking = { ora, oraTo };
+  const attMode = document.getElementById('f-att-toggle')?.checked;
+  // In ATT mode: unlock ALL buttons first
+  if(attMode) {
+    document.querySelectorAll('.tav-btn').forEach(btn => {
+      btn.disabled = false;
+      btn.classList.remove('conflict', 'conflict-soft');
+    });
+  }
   document.querySelectorAll('.tav-btn').forEach(btn => {
     const t = btn.dataset.t;
     const isSelected = selected.includes(t);
@@ -1133,26 +1143,33 @@ function setPickerSelection(selected=[], ora=null, oraTo=null) {
       b.tavoli && b.tavoli.includes(t) &&
       timeOverlap(fakeBooking, b)
     ) : null;
-    // Hard conflict only if the booking's start time is NOT yet in the past
-    const hardConflict = !!conflictingB && !bookingIsInPast(conflictingB);
-    // Soft conflict: was occupied but start time is past (tavolo potentially free)
-    const softConflict = !!conflictingB && bookingIsInPast(conflictingB);
+    // In ATT mode: tutti i tavoli selezionabili, conflitti ignorati
+    const hardConflict = !attMode && !!conflictingB && !bookingIsInPast(conflictingB);
+    const softConflict = !attMode && !!conflictingB && bookingIsInPast(conflictingB);
     btn.classList.toggle('selected', isSelected);
-    btn.classList.toggle('conflict', hardConflict);
+    btn.classList.toggle('conflict', hardConflict);           // bloccato solo se NON in ATT mode
     btn.classList.toggle('conflict-soft', softConflict);
-    btn.title = hardConflict
-      ? `Occupato da ${conflictingB.nome||'—'} (${conflictingB.ora})`
-      : softConflict
-        ? `Era occupato da ${conflictingB.nome||'—'} (${conflictingB.ora}) — ora potrebbe essere libero`
-        : '';
+    btn.classList.toggle('att-override', !isSelected && attMode && !!conflictingB);
+    btn.disabled = hardConflict;                              // disabilita fisicamente solo hard conflict non ATT
+    btn.title = attMode && conflictingB
+      ? `ATT — ${conflictingB.nome||'—'} (${conflictingB.ora})`
+      : hardConflict
+        ? `Occupato da ${conflictingB.nome||'—'} (${conflictingB.ora})`
+        : softConflict
+          ? `Era occupato da ${conflictingB.nome||'—'} (${conflictingB.ora}) — ora potrebbe essere libero`
+          : '';
   });
   updateTavoliCount();
 }
 
 function toggleTavoloBtn(btn) {
-  if(btn.classList.contains('conflict')) return; // hard conflict: blocked
+  const attMode = document.getElementById('f-att-toggle')?.checked;
+  if(btn.disabled && !attMode) return; // hard conflict: blocked unless ATT
+  btn.disabled = false;
   btn.classList.toggle('selected');
+  btn.classList.remove('conflict');
   btn.classList.remove('conflict-soft');
+  btn.classList.remove('att-override');
   markDirty();
   updateTavoliCount();
 }
@@ -1512,15 +1529,21 @@ function renderPanel(panel) {
 
       const oraText  = b.oraTo ? `${b.ora}→${b.oraTo}` : (b.ora||'');
       const oraClass = b.oraTo ? 'cell-ora has-range' : 'cell-ora';
-      const tavoliHTML = tavoli.map(t =>
-        `<div style="line-height:1.4">${t}${bisSet.has(t)?'<span class="badge-bis">BIS</span>':''}</div>`
-      ).join('') || '';
+      // Build set of tables that have ANY ATT booking (for badge on all rows sharing that table)
+      const attTables = new Set(
+        bookings().filter(x => x.att).flatMap(x => getTavoli(x))
+      );
 
-      const attBadge = b.att ? '<span style="display:inline-block;background:#C9A84C;color:white;font-size:8px;font-weight:900;padding:1px 4px;border-radius:2px;margin-left:4px;letter-spacing:0.04em;">ATT</span>' : '';
+      const tavoliHTML = tavoli.map(t => {
+        const bisTag = bisSet.has(t) ? '<span class="badge-bis">BIS</span>' : '';
+        const attTag = attTables.has(t) ? '<span style="display:inline-block;background:#C9A84C;color:#1a1a1a;font-size:7px;font-weight:900;padding:1px 3px;border-radius:2px;margin-left:3px;letter-spacing:0.04em;">ATT</span>' : '';
+        return `<div style="line-height:1.5">${t}${bisTag}${attTag}</div>`;
+      }).join('') || '';
+
       tr.innerHTML = `
         <td class="cell-chk"><div class="chk-box${b.arrived?' checked':''}" data-id="${b.id}"></div></td>
         <td class="${oraClass}">${oraText}</td>
-        <td class="cell-nome">${b.nome||''}${attBadge}</td>
+        <td class="cell-nome">${b.nome||''}</td>
         <td class="cell-np">${b.np||''}</td>
         <td class="cell-tel">${b.tel||''}</td>
         <td class="cell-tav" style="vertical-align:middle;padding:2px 3px;">${tavoliHTML}</td>`;
@@ -1806,6 +1829,15 @@ function quickWalkInOccupied(tavolo, existingBookings) {
 function updateAttSlider() {
   const on = document.getElementById('f-att-toggle').checked;
   document.getElementById('att-slider').style.background = on ? '#C9A84C' : '#c8c0b4';
+  // Refresh picker to apply/remove ATT override mode
+  const isSingle = document.getElementById('mode-single').classList.contains('active');
+  const ora   = isSingle
+    ? document.getElementById('f-ora').value || null
+    : document.getElementById('f-ora-from').value || null;
+  const oraTo = isSingle
+    ? null
+    : document.getElementById('f-ora-to').value || null;
+  setPickerSelection(getSelectedTavoli(), ora, oraTo);
 }
 
 // Toast di conferma salvataggio
