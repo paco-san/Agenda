@@ -315,7 +315,7 @@ tbody td:last-child { border-right: none; }
 
 /* History section */
 .history-section {
-  margin: 0 14px 28px; background: #FFFFFF;
+  margin: 0 8px 28px; background: #FFFFFF;
   border: 1px solid #c8c0b4; border-top: 3px solid #1a1a1a;
   border-radius: 2px; overflow: hidden;
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
@@ -366,28 +366,43 @@ tbody td:last-child { border-right: none; }
 .add-row-btn svg { flex-shrink: 0; }
 
 /* Notes section */
-.notes-section {
-  margin: 0 14px 28px; background: #FFFFFF;
+/* ── ASPORTO SECTION ─────────────────────────────────────────────────── */
+.asporto-section {
+  margin: 0 8px 24px; background: #FFFFFF;
   border: 1px solid #c8c0b4; border-top: 3px solid #C9A84C;
   border-radius: 2px; overflow: hidden;
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
-.notes-header {
-  background: #1a1a1a !important; color: white !important; padding: 8px 14px;
-  display: flex; align-items: center; gap: 8px;
+.asporto-header {
+  background: #1a1a1a; color: white; padding: 8px 14px;
+  display: flex; align-items: center; justify-content: space-between;
 }
-.notes-header-title {
-  font-family: 'Playfair Display', serif; font-size: 13px; letter-spacing: 0.05em;
+.asporto-header-title { font-family: 'Playfair Display', serif; font-size: 13px; color: #C9A84C; letter-spacing: 0.05em; }
+.asporto-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.asporto-table thead th {
+  font-size: 8px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: #C9A84C; padding: 5px 6px; border-bottom: 2px solid #C9A84C;
+  border-right: 1px solid #e8e2da; text-align: left; background: #FAF8F5;
 }
-.notes-header-sub { font-size: 10px; opacity: 0.5; margin-left: auto; }
-.notes-textarea {
-  width: 100%; min-height: 110px; padding: 12px 14px;
-  border: none; outline: none; resize: vertical;
-  font-family: 'Lato', sans-serif; font-size: 14px; line-height: 1.6;
-  color: #1a1a1a; background: #FFFFFF;
-  border-top: 1px solid #e8e2da;
+.asporto-table tbody td {
+  padding: 4px 6px; min-height: 38px; border-bottom: 1px solid #e8e2da;
+  border-right: 1px solid #e8e2da; vertical-align: middle;
+  font-size: 12px; color: #1a1a1a; overflow: hidden;
 }
-.notes-textarea::placeholder { color: #c8c0b4; font-style: italic; }
+.asporto-table tbody tr:last-child td { border-bottom: none; }
+.asporto-table tbody tr:hover { background: #FAF8F5; cursor: pointer; }
+.asp-col-ora  { width: 52px; font-weight: 700; font-size: 11px; color: #4a4a4a; white-space: nowrap; }
+.asp-col-nome { width: 28%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.asp-col-pizze { white-space: normal; word-break: break-word; font-size: 11px; color: #4a4a4a; line-height: 1.4; }
+.asporto-add-btn {
+  width: 100%; padding: 10px; background: none; border: none; border-top: 1px dashed #c8c0b4;
+  color: #C9A84C; font-family: 'Lato', sans-serif; font-size: 12px; font-weight: 700;
+  letter-spacing: 0.08em; cursor: pointer; text-transform: uppercase; transition: background 0.15s;
+  touch-action: manipulation;
+}
+.asporto-add-btn:hover { background: #FEF9EC; }
+.asporto-empty { font-size: 12px; color: #c8c0b4; font-style: italic; padding: 14px; text-align: center; }
+.asp-modal { max-width: 400px; }
 .overlay {
   display: none; position: fixed; inset: 0;
   background: rgba(10,10,10,0.6); z-index: 200;
