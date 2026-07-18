@@ -403,6 +403,15 @@ tbody td:last-child { border-right: none; }
 .asporto-add-btn:hover { background: #FEF9EC; }
 .asporto-empty { font-size: 12px; color: #c8c0b4; font-style: italic; padding: 14px; text-align: center; }
 .asp-modal { max-width: 400px; }
+.asp-pizze-textarea {
+  width: 100%; border: 1px solid #c8c0b4; border-radius: 3px;
+  padding: 8px 10px; font-family: 'Lato', sans-serif; font-size: 14px;
+  color: #1a1a1a; background: #FAF8F5; outline: none;
+  resize: vertical; min-height: 80px; line-height: 1.5;
+  box-sizing: border-box; -webkit-appearance: none;
+}
+.asp-pizze-textarea:focus { border-color: #B03A2E; background: white; }
+.asp-col-pizze { white-space: pre-line; }
 .overlay {
   display: none; position: fixed; inset: 0;
   background: rgba(10,10,10,0.6); z-index: 200;
@@ -667,7 +676,7 @@ input:focus, select:focus { border-color: #B03A2E; background: white; }
       </div>
       <div class="field-group">
         <label class="field-label">Pizze</label>
-        <input type="text" id="asp-pizze" placeholder="es. 2x margherita, 1x diavola…" autocomplete="off" oninput="markAspDirty()">
+        <textarea id="asp-pizze" class="asp-pizze-textarea" placeholder="es.&#10;2x margherita&#10;1x diavola&#10;1x capricciosa" autocomplete="off" oninput="markAspDirty()" rows="4"></textarea>
       </div>
     </div>
     <div class="modal-footer">
