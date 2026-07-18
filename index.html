@@ -610,7 +610,6 @@ input:focus, select:focus { border-color: #B03A2E; background: white; }
   <table class="asporto-table">
     <thead>
       <tr>
-        <th class="asp-col-chk">✓</th>
         <th class="asp-col-ora">Ora</th>
         <th class="asp-col-nome">Nome</th>
         <th class="asp-col-pizze">Pizze</th>
@@ -872,14 +871,123 @@ async function saveData() {
   }
 }
 
-function getNotes() {
-  return (allData[currentDate+'__notes']) || '';
+// ── ASPORTO ──────────────────────────────────────────────────────────────────
+function getAsporto() { return allData[currentDate + '__asporto'] || []; }
+function setAsporto(arr) { allData[currentDate + '__asporto'] = arr; }
+
+let aspEditingId = null;
+let _aspDirty = false;
+function markAspDirty() { _aspDirty = true; }
+
+function renderAsporto() {
+  const list = getAsporto().slice().sort((a,b) => {
+    const toM = t => { if(!t) return 9999; const p=t.split(':'); return +p[0]*60+(+p[1]||0); };
+    return toM(a.ora) - toM(b.ora);
+  });
+  const tbody = document.getElementById('asporto-tbody');
+  const empty = document.getElementById('asporto-empty');
+  const countEl = document.getElementById('asporto-count');
+  if(!tbody) return;
+  tbody.innerHTML = '';
+  if(list.length === 0) {
+    empty.style.display = 'block';
+    if(countEl) countEl.textContent = '';
+    return;
+  }
+  empty.style.display = 'none';
+  if(countEl) countEl.textContent = list.length + ' ordini';
+  list.forEach(a => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="asp-col-ora">${a.ora||'—'}</td><td class="asp-col-nome">${a.nome||''}</td><td class="asp-col-pizze">${a.pizze||''}</td>`;
+    tr.style.cursor = 'pointer';
+    tr.addEventListener('click', () => openAspModal(a.id));
+    tbody.appendChild(tr);
+  });
 }
-function saveNotes() {
-  const val = document.getElementById('notes-textarea').value;
-  allData[currentDate+'__notes'] = val;
-  saveData();
-  document.getElementById('notes-saved-label').textContent = '';
+
+function openAspModal(id) {
+  if(isReadOnly) return;
+  aspEditingId = id || null;
+  _aspDirty = false;
+  const a = id ? getAsporto().find(x=>x.id===id) : null;
+  document.getElementById('asp-modal-title').textContent = a ? 'Modifica Asporto' : 'Nuovo Asporto';
+  const d = new Date(currentDate+'T12:00:00');
+  document.getElementById('asp-modal-subtitle').textContent =
+    DAYS[d.getDay()] + ' ' + d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear();
+  document.getElementById('asp-ora').value   = a ? (a.ora||'')   : '';
+  document.getElementById('asp-nome').value  = a ? (a.nome||'')  : '';
+  document.getElementById('asp-pizze').value = a ? (a.pizze||'') : '';
+  document.getElementById('asp-btn-delete').style.display = a ? 'block' : 'none';
+  document.getElementById('asp-modal-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById('asp-nome').focus(), 150);
+}
+
+function closeAspModal() {
+  if(_aspDirty) {
+    customConfirm('Hai modifiche non salvate. Chiudere senza salvare?').then(ok => {
+      if(ok) _closeAspModal();
+    });
+    return;
+  }
+  _closeAspModal();
+}
+
+function _closeAspModal() {
+  document.getElementById('asp-modal-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+  _aspDirty = false;
+  aspEditingId = null;
+}
+
+function closeAspOutside(e) {
+  if(e.target === document.getElementById('asp-modal-overlay')) closeAspModal();
+}
+
+function saveAsp() {
+  const ora   = document.getElementById('asp-ora').value.trim();
+  const nome  = document.getElementById('asp-nome').value.trim();
+  const pizze = document.getElementById('asp-pizze').value.trim();
+  if(!nome) { alert('Inserisci il nome.'); return; }
+  const list = getAsporto();
+  if(aspEditingId) {
+    const idx = list.findIndex(x=>x.id===aspEditingId);
+    if(idx>-1) list[idx] = {...list[idx], ora, nome, pizze};
+    addHistory('✏️', 'Asporto modificato: <strong>'+nome+'</strong>'+(ora?' '+ora:''));
+  } else {
+    list.push({ id: Date.now().toString(), ora, nome, pizze });
+    addHistory('🛵', 'Asporto aggiunto: <strong>'+nome+'</strong>'+(ora?' '+ora:''));
+  }
+  setAsporto(list);
+  renderAsporto();
+  saveAsporto();
+  _aspDirty = false;
+  _closeAspModal();
+  showToast('Asporto salvato', '#C9A84C');
+}
+
+async function deleteAsp() {
+  if(!aspEditingId) return;
+  const ok = await customConfirm('Eliminare questo ordine asporto?');
+  if(!ok) return;
+  const a = getAsporto().find(x=>x.id===aspEditingId);
+  if(a) addHistory('🗑️', 'Asporto eliminato: <strong>'+(a.nome||'—')+'</strong>');
+  setAsporto(getAsporto().filter(x=>x.id!==aspEditingId));
+  renderAsporto();
+  saveAsporto();
+  _aspDirty = false;
+  _closeAspModal();
+  showToast('Asporto eliminato', '#922B21');
+}
+
+async function saveAsporto() {
+  if(!configured) return;
+  try {
+    await sbUpsert('agenda_giorni', {
+      data_key: currentDate + '__asporto',
+      payload:  JSON.stringify(getAsporto())
+    });
+  } catch(e) { console.error('saveAsporto error:', e); }
 }
 
 // ── CRONOLOGIA ──────────────────────────────────────────────────────────────
