@@ -602,12 +602,24 @@ input:focus, select:focus { border-color: #B03A2E; background: white; }
 </div>
 
 <!-- NOTES -->
-<div class="notes-section">
-  <div class="notes-header">
-    <div class="notes-header-title">📝 Note della serata</div>
-    <div class="notes-header-sub" id="notes-saved-label"></div>
+<div class="asporto-section">
+  <div class="asporto-header">
+    <div class="asporto-header-title">🛵 Asporto</div>
+    <span id="asporto-count" style="font-size:11px;color:#4a4a4a;"></span>
   </div>
-  <textarea class="notes-textarea" id="notes-textarea" placeholder="Annotazioni generali, richieste speciali, promemoria…" oninput="saveNotes()"></textarea>
+  <table class="asporto-table">
+    <thead>
+      <tr>
+        <th class="asp-col-chk">✓</th>
+        <th class="asp-col-ora">Ora</th>
+        <th class="asp-col-nome">Nome</th>
+        <th class="asp-col-pizze">Pizze</th>
+      </tr>
+    </thead>
+    <tbody id="asporto-tbody"></tbody>
+  </table>
+  <div id="asporto-empty" class="asporto-empty">Nessun ordine asporto per oggi.</div>
+  <button class="asporto-add-btn" onclick="openAspModal(null)">+ Aggiungi asporto</button>
 </div>
 
 <!-- HISTORY SECTION -->
@@ -618,6 +630,37 @@ input:focus, select:focus { border-color: #B03A2E; background: white; }
   </div>
   <div class="history-list" id="history-list">
     <div class="history-empty">Nessuna modifica registrata oggi.</div>
+  </div>
+</div>
+
+<!-- ASPORTO MODAL -->
+<div class="overlay asp-modal-overlay" id="asp-modal-overlay" onclick="closeAspOutside(event)">
+  <div class="modal asp-modal">
+    <div class="modal-header">
+      <div><h2 id="asp-modal-title">Nuovo Asporto</h2><p id="asp-modal-subtitle" style="font-size:11px;color:rgba(255,255,255,0.5)"></p></div>
+      <button class="btn-close" onclick="closeAspModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field-row" style="gap:12px;">
+        <div class="field-group" style="max-width:100px;flex-shrink:0;">
+          <label class="field-label">Ora</label>
+          <input type="text" id="asp-ora" placeholder="20:30" autocomplete="off" oninput="markAspDirty()">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Nome</label>
+          <input type="text" id="asp-nome" placeholder="Cognome / Nome" autocomplete="off" oninput="markAspDirty()">
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Pizze</label>
+        <input type="text" id="asp-pizze" placeholder="es. 2x margherita, 1x diavola…" autocomplete="off" oninput="markAspDirty()">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeAspModal()">Annulla</button>
+      <button class="btn-delete" id="asp-btn-delete" style="display:none" onclick="deleteAsp()">Elimina</button>
+      <button class="btn-save" onclick="saveAsp()">Salva</button>
+    </div>
   </div>
 </div>
 
@@ -813,9 +856,7 @@ async function saveData() {
     setSyncStatus('saving');
     const bookingsPayload = allData[currentDate] || [];
     await sbUpsert('agenda_giorni', { data_key: currentDate, payload: JSON.stringify(bookingsPayload) });
-    const notesKey = currentDate + '__notes';
-    const notes = allData[notesKey] || '';
-    await sbUpsert('agenda_giorni', { data_key: notesKey, payload: JSON.stringify(notes) });
+
     const ferie = allData['__ferie__'] || [];
     await sbUpsert('agenda_giorni', { data_key: '__ferie__', payload: JSON.stringify(ferie) });
     const historyKey = currentDate + '__history';
@@ -1225,6 +1266,7 @@ function render() {
   renderPanel(2);
   renderTableMap();
   updateStats();
+  renderAsporto();
   renderHistory();
 }
 
@@ -1244,8 +1286,7 @@ function updateDateDisplay() {
   document.getElementById('nav-day').textContent = DAYS[d.getDay()];
   document.getElementById('nav-date').textContent = `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
   document.getElementById('map-date-label').textContent = `${d.getDate()} ${MONTHS[d.getMonth()]}`;
-  document.getElementById('notes-textarea').value = getNotes();
-  document.getElementById('notes-saved-label').textContent = '';
+
 
   const closed = isClosed(currentDate);
   const banner = document.getElementById('closed-banner');
